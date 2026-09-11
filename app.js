@@ -60,15 +60,10 @@ const ROUTINE_DATA = [
 const LOCAL_STORAGE_KEYS = {
   COMPLETED: "rotineiro_completed_tasks_v3",
   COMPLETED_MEDS: "rotineiro_completed_meds_v3",
-  WATER: "rotineiro_water_count_v3",
-  TOKEN: "rotineiro_sql_token",
-  USER: "rotineiro_sql_user"
+  WATER: "rotineiro_water_count_v3"
 };
 
 const TOTAL_WATER_GOAL = 6;
-let authToken = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN) || null;
-let currentUser = localStorage.getItem(LOCAL_STORAGE_KEYS.USER) || null;
-let authMode = "login"; // "login" | "register"
 let currentTab = "todas";
 let hideCompleted = false;
 let completedTaskIds = new Set();
@@ -115,63 +110,6 @@ function saveLocalData() {
   }
 }
 
-/**
- * Sincroniza com o backend SQLite se o usuário estiver logado
- */
-async function syncToServer() {
-  saveLocalData();
-  if (!authToken) return;
-
-  try {
-    await fetch("/api/routine/save", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        date: getTodayDateStr(),
-        completed_tasks: [...completedTaskIds],
-        completed_meds: [...completedMedIds],
-        water_count: waterGlassesCount
-      })
-    });
-  } catch (err) {
-    console.warn("Backend offline ou inacessível, dados mantidos localmente:", err.message);
-  }
-}
-
-/**
- * Carrega do banco SQL de hoje
- */
-async function syncFromServer() {
-  if (!authToken) {
-    loadLocalData();
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/routine/day?date=${getTodayDateStr()}`, {
-      headers: { "Authorization": `Bearer ${authToken}` }
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      completedTaskIds = new Set(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
-      completedMedIds = new Set(Array.isArray(data.completed_meds) ? data.completed_meds : []);
-      waterGlassesCount = Math.min(Math.max(0, Number(data.water_count) || 0), TOTAL_WATER_GOAL);
-      saveLocalData();
-    } else if (res.status === 401) {
-      // Sessão expirou
-      handleLogoutLocal();
-    } else {
-      loadLocalData();
-    }
-  } catch {
-    loadLocalData();
-  }
-}
-
 function toggleTask(taskId) {
   const task = ROUTINE_DATA.find(t => t.id === taskId);
   if (!task) return;
@@ -189,7 +127,7 @@ function toggleTask(taskId) {
     }
   }
 
-  syncToServer();
+  saveLocalData();
   renderCurrentView();
   updateProgress();
 }
@@ -204,7 +142,7 @@ function toggleMedication(medId) {
     } else {
       completedMedIds.add(medId);
     }
-    syncToServer();
+    saveLocalData();
     renderCurrentView();
     updateProgress();
   }
@@ -389,203 +327,6 @@ function updateCurrentTaskBanner() {
   }
 }
 
-// ================= AUTENTICAÇÃO E HISTÓRICO SQL =================
-
-function updateUserUI() {
-  const container = document.getElementById("user-profile-bar");
-  if (!container) return;
-
-  if (currentUser) {
-    container.innerHTML = `
-      <div class="user-badge" title="Conectado como ${currentUser}">
-        <span class="user-email-text">${currentUser}</span>
-      </div>
-      <button id="btn-open-history" class="btn-history" title="Ver registros anteriores no banco SQL">Histórico</button>
-      <button id="btn-logout" class="btn-logout" title="Sair da conta">Sair</button>
-    `;
-    document.getElementById("btn-logout")?.addEventListener("click", handleLogout);
-    document.getElementById("btn-open-history")?.addEventListener("click", openHistoryModal);
-  } else {
-    container.innerHTML = `
-      <button id="btn-open-auth" class="btn-auth">Entrar / Criar Conta</button>
-    `;
-    document.getElementById("btn-open-auth")?.addEventListener("click", () => openAuthModal("login"));
-  }
-}
-
-function openAuthModal(mode = "login") {
-  authMode = mode;
-  const modal = document.getElementById("auth-modal");
-  const tabLogin = document.getElementById("tab-login-btn");
-  const tabRegister = document.getElementById("tab-register-btn");
-  const submitBtn = document.getElementById("submit-auth-btn");
-  const errorMsg = document.getElementById("auth-error-msg");
-  const form = document.getElementById("auth-form");
-
-  if (!modal) return;
-  form?.reset();
-  if (errorMsg) {
-    errorMsg.textContent = "";
-    errorMsg.classList.add("hidden");
-  }
-
-  if (mode === "login") {
-    tabLogin?.classList.add("active");
-    tabRegister?.classList.remove("active");
-    if (submitBtn) submitBtn.textContent = "Entrar";
-  } else {
-    tabRegister?.classList.add("active");
-    tabLogin?.classList.remove("active");
-    if (submitBtn) submitBtn.textContent = "Criar Conta";
-  }
-
-  modal.classList.remove("hidden");
-  document.getElementById("auth-email")?.focus();
-}
-
-function closeAuthModal() {
-  document.getElementById("auth-modal")?.classList.add("hidden");
-}
-
-async function openHistoryModal() {
-  const modal = document.getElementById("history-modal");
-  const container = document.getElementById("history-list-container");
-  if (!modal || !container) return;
-
-  modal.classList.remove("hidden");
-  container.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Consultando banco de dados SQL...</div>';
-
-  if (!authToken) {
-    container.innerHTML = '<div class="empty-state">Faça login para visualizar o histórico de registros.</div>';
-    return;
-  }
-
-  try {
-    const res = await fetch("/api/routine/history", {
-      headers: { "Authorization": `Bearer ${authToken}` }
-    });
-    const data = await res.json();
-    const history = data.history || [];
-
-    if (history.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum registro anterior encontrado no banco de dados.</div>';
-      return;
-    }
-
-    container.innerHTML = history.map(item => {
-      const [y, m, d] = item.date.split("-");
-      const dateFormatted = `${d}/${m}/${y}`;
-      return `
-        <div class="history-item-row">
-          <div class="history-date-box">
-            <span class="history-date-title">${dateFormatted}</span>
-            <span class="history-updated-time">Atualizado: ${item.updatedAt}</span>
-          </div>
-          <div class="history-metrics">
-            <span class="history-chip">${item.tasksCount} de 33 tarefas</span>
-            <span class="history-chip chip-med">${item.medsCount} remédios</span>
-            <span class="history-chip chip-water">${item.waterCount} copos</span>
-          </div>
-        </div>
-      `;
-    }).join("");
-  } catch (err) {
-    container.innerHTML = `<div class="empty-state">Erro ao conectar com o banco SQL: ${err.message}</div>`;
-  }
-}
-
-function closeHistoryModal() {
-  document.getElementById("history-modal")?.classList.add("hidden");
-}
-
-async function handleAuthSubmit(e) {
-  e.preventDefault();
-  const email = document.getElementById("auth-email")?.value.trim() || "";
-  const password = document.getElementById("auth-password")?.value || "";
-  const errorMsg = document.getElementById("auth-error-msg");
-  const submitBtn = document.getElementById("submit-auth-btn");
-
-  if (errorMsg) {
-    errorMsg.textContent = "";
-    errorMsg.classList.add("hidden");
-  }
-
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Conectando ao SQL...";
-  }
-
-  const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Falha na requisição.");
-    }
-
-    authToken = data.token;
-    currentUser = data.user.email;
-    localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, authToken);
-    localStorage.setItem(LOCAL_STORAGE_KEYS.USER, currentUser);
-
-    closeAuthModal();
-    updateUserUI();
-
-    // Se tiver dados em andamento, salva no banco; senão puxa do banco
-    if (completedTaskIds.size > 0 || waterGlassesCount > 0) {
-      await syncToServer();
-    } else {
-      await syncFromServer();
-    }
-
-    renderWater();
-    renderCurrentView();
-    updateProgress();
-  } catch (err) {
-    if (errorMsg) {
-      errorMsg.textContent = err.message;
-      errorMsg.classList.remove("hidden");
-    }
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = authMode === "login" ? "Entrar" : "Criar Conta";
-    }
-  }
-}
-
-async function handleLogout() {
-  if (authToken) {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${authToken}` }
-      });
-    } catch {
-      // ignora erro de rede no logout
-    }
-  }
-  handleLogoutLocal();
-}
-
-function handleLogoutLocal() {
-  authToken = null;
-  currentUser = null;
-  localStorage.removeItem(LOCAL_STORAGE_KEYS.TOKEN);
-  localStorage.removeItem(LOCAL_STORAGE_KEYS.USER);
-  updateUserUI();
-  loadLocalData();
-  renderWater();
-  renderCurrentView();
-  updateProgress();
-}
-
 function setupEvents() {
   const tabButtons = document.querySelectorAll(".tab-item");
   tabButtons.forEach(btn => {
@@ -605,7 +346,7 @@ function setupEvents() {
   document.getElementById("btn-quick-water")?.addEventListener("click", () => {
     if (waterGlassesCount < TOTAL_WATER_GOAL) {
       waterGlassesCount++;
-      syncToServer();
+      saveLocalData();
       renderWater();
     }
   });
@@ -615,7 +356,7 @@ function setupEvents() {
     if (!btn) return;
     const slot = parseInt(btn.dataset.slot, 10);
     waterGlassesCount = slot === waterGlassesCount ? slot - 1 : slot;
-    syncToServer();
+    saveLocalData();
     renderWater();
   });
 
@@ -646,33 +387,17 @@ function setupEvents() {
     completedTaskIds.clear();
     completedMedIds.clear();
     waterGlassesCount = 0;
-    syncToServer();
+    saveLocalData();
     renderWater();
     renderCurrentView();
     updateProgress();
     resetModal?.classList.add("hidden");
   });
-
-  // Modal de Autenticação
-  document.getElementById("tab-login-btn")?.addEventListener("click", () => openAuthModal("login"));
-  document.getElementById("tab-register-btn")?.addEventListener("click", () => openAuthModal("register"));
-  document.getElementById("cancel-auth-btn")?.addEventListener("click", closeAuthModal);
-  document.getElementById("auth-form")?.addEventListener("submit", handleAuthSubmit);
-
-  // Modal de Histórico
-  document.getElementById("close-history-btn")?.addEventListener("click", closeHistoryModal);
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
-  updateUserUI();
-
-  if (authToken) {
-    await syncFromServer();
-  } else {
-    loadLocalData();
-  }
-
+  loadLocalData();
   renderWater();
   renderCurrentView();
   updateProgress();

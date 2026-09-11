@@ -26,7 +26,7 @@ const ROUTINE_DATA = [
   { id: "task-05", period: "manha", time: "09:35 / 10:00", startMins: 575, endMins: 600, tags: ["Café"], title: "Café da Manhã Tranquilo", desc: "Tomar o café da manhã com serenidade em ambiente calmo.", tip: "Use pratos e xícaras de cores fortes que contrastem com a mesa (exemplo: prato vermelho em mesa branca) para facilitar o foco visual." },
   { id: "task-06", period: "manha", time: "10:00 / 10:05", startMins: 600, endMins: 605, tags: ["Remédios"], title: "Remédios Depois do Café: Losartana, Gliclazida, Hidro e Vitamina B", desc: "Tomar os medicamentos pós-café e ir ao banheiro.", linkedMedId: "med-03" },
   { id: "task-07", period: "manha", time: "10:05 / 10:40", startMins: 605, endMins: 640, tags: ["Pandora"], title: "Enxugar Louça e 1ª Ida da Pandora na Garagem", desc: "Enxugar a louça do café com calma e levar a cachorrinha para a primeira volta na garagem." },
-  { id: "task-08", period: "manha", time: "10:40 / 11:10", startMins: 640, endMins: 670, tags: ["Atividade"], title: "Tarefa Manual: Dobrar Panos de Prato", desc: "Entregar cerca de 10 panos de prato para ela dobrar e separar por cores na mesa da cozinha.", tip: "Atividade manual leve para distração e concentração saudável." },
+  { id: "task-08", period: "manha", time: "10:40 / 11:10", startMins: 640, endMins: 670, tags: ["Tarefa Manual"], title: "Tarefa Manual: Dobrar Panos de Prato", desc: "Entregar cerca de 10 panos de prato para ela dobrar e separar por cores na mesa da cozinha.", tip: "Atividade manual leve para distração e concentração saudável." },
   { id: "task-09", period: "manha", time: "11:10 / 11:15", startMins: 670, endMins: 675, tags: ["Café", "Água"], title: "Café Preto e Copo de Água (300ml)", desc: "Oferecer um café preto e logo em seguida 300ml de água para hidratação.", isWater: true },
   { id: "task-10", period: "manha", time: "11:15 / 11:40", startMins: 675, endMins: 700, tags: ["Música", "Água"], title: "Momento da Música e Água (200ml)", desc: "Deixar ela escolher os discos livremente. Ao final de cada disco colocar outro e oferecer 200ml de água.", isWater: true },
   { id: "task-11", period: "manha", time: "11:40 / 12:15", startMins: 700, endMins: 735, tags: ["Televisão"], title: "Televisão ou Distração até o Almoço", desc: "Assistir um pouco de TV ou deixar a TV de fundo enquanto ela mexe em brinquedos ou arruma pequenos objetos." },
@@ -38,11 +38,11 @@ const ROUTINE_DATA = [
   { id: "task-14", period: "tarde", time: "12:45 / 13:15", startMins: 765, endMins: 795, tags: ["Pandora"], title: "2ª Ida da Pandora na Garagem", desc: "Segunda descida com a Pandora.", tip: "Se notar que ela estiver cansada, pode deixar tirar um cochilo até 14:30 ou 15:00." },
   { id: "task-15", period: "tarde", time: "13:15 / 13:30", startMins: 795, endMins: 810, tags: ["Lanche", "Água"], title: "Lanche Rápido e Goles de Água", desc: "Fruta fresca com café do gosto dela e oferta de água (200ml a 300ml).", isWater: true },
   { id: "task-16", period: "tarde", time: "13:30 / 13:50", startMins: 810, endMins: 830, tags: ["Pandora"], title: "3ª Ida da Pandora na Garagem", desc: "Terceira descida com a Pandora." },
-  { id: "task-17", period: "tarde", time: "13:50 / 14:20", startMins: 830, endMins: 860, tags: ["Atividade"], title: "Tarefa Manual: Enrolar Novelo de Lã", desc: "Atividade manual para estimulação leve. Pode ser enrolar novelos de lã ou outra atividade similar." },
+  { id: "task-17", period: "tarde", time: "13:50 / 14:20", startMins: 830, endMins: 860, tags: ["Tarefa Manual"], title: "Tarefa Manual: Enrolar Novelo de Lã", desc: "Atividade manual para estimulação leve. Pode ser enrolar novelos de lã ou outra atividade similar." },
   { id: "task-18", period: "tarde", time: "14:20 / 14:40", startMins: 860, endMins: 880, tags: ["Pandora"], title: "4ª Ida da Pandora na Garagem", desc: "Quarta descida com a Pandora." },
-  { id: "task-19", period: "tarde", time: "14:40 / 15:00", startMins: 880, endMins: 900, tags: ["Atividade", "Água"], title: "Distração Manual e Água (300ml)", desc: "Caça-palavras bem simples, separar grãos ou espanar suavemente a casa, com mais 1 copo de água.", tip: "Caso ela tenha dormido mais cedo, esse costuma ser o horário em que já estará acordada.", isWater: true },
+  { id: "task-19", period: "tarde", time: "14:40 / 15:00", startMins: 880, endMins: 900, tags: ["Tarefa Manual", "Água"], title: "Distração Manual e Água (300ml)", desc: "Caça-palavras bem simples, separar grãos ou espanar suavemente a casa, com mais 1 copo de água.", tip: "Caso ela tenha dormido mais cedo, esse costuma ser o horário em que já estará acordada.", isWater: true },
   { id: "task-20", period: "tarde", time: "15:00 / 15:20", startMins: 900, endMins: 920, tags: ["Pandora"], title: "5ª Ida da Pandora na Garagem", desc: "Penúltima descida com a cachorra." },
-  { id: "task-21", period: "tarde", time: "15:20 / 15:40", startMins: 920, endMins: 940, tags: ["Atividade"], title: "Rasgar Papéis, Plantas ou TV", desc: "Rasgar folhas de papel aleatórias em tiras, regar plantas ou assistir 20 minutos de televisão." },
+  { id: "task-21", period: "tarde", time: "15:20 / 15:40", startMins: 920, endMins: 940, tags: ["Tarefa Manual", "Televisão"], title: "Rasgar Papéis, Plantas ou TV", desc: "Rasgar folhas de papel aleatórias em tiras, regar plantas ou assistir 20 minutos de televisão." },
   { id: "task-22", period: "tarde", time: "15:40 / 16:10", startMins: 940, endMins: 970, tags: ["Pandora"], title: "6ª e Última Ida da Pandora", desc: "Última descida do dia com a Pandora na garagem." },
   { id: "task-23", period: "tarde", time: "16:10 / 16:40", startMins: 970, endMins: 1000, tags: ["Banho"], title: "Horário do Banho", desc: "Banho no ritmo dela, sem pressa. Apenas entregar a toalha no final.", tip: "Atenção: Retire todas as outras toalhas do banheiro antes, deixando somente a toalha dela para não causar confusão." },
   { id: "task-24", period: "tarde", time: "16:40 / 18:55", startMins: 1000, endMins: 1135, tags: ["Televisão", "Água"], title: "Danone, Novelas e Copos de Água", desc: "Horário de novela com Danone. Durante esse período, oferecer copos de água de 200ml a 300ml de vez em quando.", isWater: true },
@@ -70,7 +70,7 @@ let completedTaskIds = new Set();
 let completedMedIds = new Set();
 let waterGlassesCount = 0;
 
-const toTagClass = tag => tag.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const toTagClass = tag => tag.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
 
 const getNowMinutes = () => {
   const d = new Date();
@@ -121,10 +121,6 @@ function toggleTask(taskId) {
   } else {
     completedTaskIds.add(taskId);
     if (task.linkedMedId) completedMedIds.add(task.linkedMedId);
-    if (task.isWater && waterGlassesCount < TOTAL_WATER_GOAL) {
-      waterGlassesCount++;
-      renderWater();
-    }
   }
 
   saveLocalData();
@@ -226,16 +222,24 @@ function renderRoutineTimeline() {
         </div>
         <div class="routine-cards-list">
           ${tasks.map(task => {
-            const isDone = completedTaskIds.has(task.id);
-            const isCurrent = !isDone && nowMins >= task.startMins && nowMins < task.endMins;
+      const isDone = completedTaskIds.has(task.id);
+      const isCurrent = !isDone && nowMins >= task.startMins && nowMins < task.endMins;
 
-            // Labels de contexto reduzidos — apenas remédios e água
             let labels = "";
             if (task.linkedMedId) labels += `<span class="card-label is-med">Remédio</span>`;
             if (task.isWater)     labels += `<span class="card-label is-water">Hidratação</span>`;
-            const activeDot = isCurrent ? '<span class="active-dot" title="Em andamento"></span>' : "";
 
-            return `
+            if (task.tags) {
+              task.tags.forEach(tag => {
+                if (tag !== "Remédio" && tag !== "Remédios" && tag !== "Hidratação" && tag !== "Água") {
+                  const slug = toTagClass(tag);
+                  labels += `<span class="card-label is-${slug}">${tag}</span>`;
+                }
+              });
+            }
+      const activeDot = isCurrent ? '<span class="active-dot" title="Em andamento"></span>' : "";
+
+      return `
               <article class="task-row-card ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-active-now' : ''}" id="card-${task.id}">
                 <button class="custom-check-btn" data-task-id="${task.id}" aria-label="Concluir tarefa">✓</button>
                 <div class="card-content">
@@ -250,7 +254,7 @@ function renderRoutineTimeline() {
                 </div>
               </article>
             `;
-          }).join("")}
+    }).join("")}
         </div>
       </section>
     `;

@@ -290,21 +290,25 @@ function renderRoutineTimeline() {
           ${tasks.map(task => {
             const isDone = completedTaskIds.has(task.id);
             const isCurrent = !isDone && nowMins >= task.startMins && nowMins < task.endMins;
-            const tagsHtml = (task.tags || []).map(tag => `<span class="badge-tag ${toTagClass(tag)}">${tag}</span>`).join("");
-            const currentBadge = isCurrent ? '<span class="badge-tag active-now">Em andamento</span>' : '';
+
+            // Labels de contexto reduzidos — apenas remédios e água
+            let labels = "";
+            if (task.linkedMedId) labels += `<span class="card-label is-med">Remédio</span>`;
+            if (task.isWater)     labels += `<span class="card-label is-water">Hidratação</span>`;
+            const activeDot = isCurrent ? '<span class="active-dot" title="Em andamento"></span>' : "";
 
             return `
               <article class="task-row-card ${isDone ? 'is-done' : ''} ${isCurrent ? 'is-active-now' : ''}" id="card-${task.id}">
                 <button class="custom-check-btn" data-task-id="${task.id}" aria-label="Concluir tarefa">✓</button>
                 <div class="card-content">
-                  <div class="card-top-row">
-                    <span class="badge-time">${task.time}</span>
-                    ${tagsHtml}
-                    ${currentBadge}
+                  <div class="card-meta-line">
+                    <span class="card-time">${task.time}</span>
+                    ${labels}
+                    ${activeDot}
                   </div>
                   <h3 class="card-title">${task.title}</h3>
                   <p class="card-description">${task.desc}</p>
-                  ${task.tip ? `<div class="card-tip-box"><strong>Observação:</strong> ${task.tip}</div>` : ''}
+                  ${task.tip ? `<div class="card-tip-box"><strong>Obs.:</strong> ${task.tip}</div>` : ''}
                 </div>
               </article>
             `;
@@ -314,7 +318,7 @@ function renderRoutineTimeline() {
     `;
   });
 
-  container.innerHTML = html.trim() || '<div class="empty-state">Nenhuma atividade pendente encontrada neste filtro.</div>';
+  container.innerHTML = html.trim() || '<div class="empty-state">Nenhuma atividade pendente neste filtro.</div>';
 }
 
 function renderRemediosView() {
@@ -337,7 +341,7 @@ function renderRemediosView() {
       <article class="remedio-item-card ${isDone ? 'is-done' : ''}" id="med-card-${med.id}">
         <button class="custom-check-btn" data-med-id="${med.id}" aria-label="Marcar remédio como tomado">✓</button>
         <div class="card-content">
-          <div class="card-top-row">
+          <div class="card-meta-line">
             <span class="remedio-momento-title">${med.momento}</span>
             <span class="remedio-periodo-tag">${med.periodo}</span>
           </div>

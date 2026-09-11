@@ -1,2 +1,2 @@
 # rotineiro
-Aplicação web para auxiliar na rotina de idoso com Alzhaimer
+Desenvolvimento Web para ajudar na checkagem da rotina de Idosos com Alzheimer

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotina Djanira</title>
+  <meta name="description" content="Acompanhamento diário da rotina e medicamentos da Djanira.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dark-theme">
+  <header class="app-header">
+    <div class="header-container">
+      <div class="header-titles">
+        <h1 class="header-title">Rotina Djanira</h1>
+      </div>
+
+      <div class="header-controls">
+        <button id="btn-reset-day" class="btn-reset" title="Zerar tarefas e começar de novo">
+          Reiniciar Rotina
+        </button>
+      </div>
+    </div>
+    <div class="dashboard-bar">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Progresso Geral</span>
+          <span class="metric-val" id="progress-text">0 de 0 (0%)</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Hidratação -->
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Hidratação (Água)</span>
+          <span class="metric-val" id="water-count">0 / 6 copos</span>
+        </div>
+        <div class="water-row">
+          <div class="water-slots" id="water-slots-container"></div>
+          <button id="btn-quick-water" class="btn-water-add">+ 1 Copo (300ml)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navegação de Abas -->
+    <nav class="nav-tabs-container">
+      <div class="tabs-list" id="main-tabs">
+        <button class="tab-item active" data-tab="todas">Todas</button>
+        <button class="tab-item" data-tab="manha">Manhã</button>
+        <button class="tab-item" data-tab="tarde">Tarde</button>
+        <button class="tab-item" data-tab="noite">Noite</button>
+        <button class="tab-item tab-highlight" data-tab="remedios">Remédios</button>
+      </div>
+      <div class="filter-toggle">
+        <label class="checkbox-container">
+          <input type="checkbox" id="hide-completed">
+          <span class="checkbox-label">Ocultar concluídas</span>
+        </label>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-container">
+    <!-- Bloco de Atividade Atual -->
+    <div class="current-task-box" id="current-task-banner" style="display: none;">
+      <div class="current-task-tag">
+        <span class="pulse-point"></span>
+        <span>Atividade Atual</span>
+      </div>
+      <div class="current-task-body" id="current-task-content"></div>
+    </div>
+
+    <!-- Aba de Rotina Geral (Manhã, Tarde, Noite) -->
+    <section id="view-routine" class="view-panel active">
+      <div class="routine-list" id="routine-timeline"></div>
+    </section>
+
+    <!-- Aba Dedicada de Remédios (Direta e Sem Cards de Estatística) -->
+    <section id="view-remedios" class="view-panel" style="display: none;">
+      <div class="remedios-header">
+        <h2>Controle de Medicamentos</h2>
+        <p>Acompanhe e confirme os remédios em cada momento do dia.</p>
+      </div>
+      <div class="remedios-list" id="remedios-list-container"></div>
+    </section>
+  </main>
+
+  <!-- Modal de Confirmação -->
+  <div class="modal-overlay" id="reset-modal" style="display: none;">
+    <div class="modal-card">
+      <h3>Reiniciar rotina?</h3>
+      <p>Isso desmarcará todas as tarefas e copos de água para recomeçar o acompanhamento.</p>
+      <div class="modal-actions">
+        <button id="cancel-reset-btn" class="btn-outline">Cancelar</button>
+        <button id="confirm-reset-btn" class="btn-confirm">Sim, Reiniciar Rotina</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>Rotina Djanira &bull; Desenvolvido por André Greroski</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

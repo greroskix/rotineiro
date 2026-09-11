@@ -57,13 +57,18 @@ const ROUTINE_DATA = [
   { id: "task-29", period: "noite", time: "21:45 / 22:00", startMins: 1305, endMins: 1320, tags: ["Remédios", "Dormir"], title: "Ao Deitar (Depois): Nortriptilina e Dormir", desc: "Tomar Nortriptilina no momento de deitar na cama. Quarto calmo, escuro e confortável para repouso.", linkedMedId: "med-09" }
 ];
 
-const STORAGE_KEYS = {
+const LOCAL_STORAGE_KEYS = {
   COMPLETED: "rotineiro_completed_tasks_v3",
   COMPLETED_MEDS: "rotineiro_completed_meds_v3",
-  WATER: "rotineiro_water_count_v3"
+  WATER: "rotineiro_water_count_v3",
+  TOKEN: "rotineiro_sql_token",
+  USER: "rotineiro_sql_user"
 };
 
 const TOTAL_WATER_GOAL = 6;
+let authToken = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN) || null;
+let currentUser = localStorage.getItem(LOCAL_STORAGE_KEYS.USER) || null;
+let authMode = "login"; // "login" | "register"
 let currentTab = "todas";
 let hideCompleted = false;
 let completedTaskIds = new Set();
@@ -77,28 +82,93 @@ const getNowMinutes = () => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-function loadData() {
+const getTodayDateStr = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Carrega dados locais (fallback offline)
+ */
+function loadLocalData() {
   try {
-    const savedCompleted = JSON.parse(localStorage.getItem(STORAGE_KEYS.COMPLETED) || "[]");
-    if (Array.isArray(savedCompleted)) completedTaskIds = new Set(savedCompleted);
+    const savedCompleted = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.COMPLETED) || "[]");
+    completedTaskIds = new Set(Array.isArray(savedCompleted) ? savedCompleted : []);
 
-    const savedMeds = JSON.parse(localStorage.getItem(STORAGE_KEYS.COMPLETED_MEDS) || "[]");
-    if (Array.isArray(savedMeds)) completedMedIds = new Set(savedMeds);
+    const savedMeds = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.COMPLETED_MEDS) || "[]");
+    completedMedIds = new Set(Array.isArray(savedMeds) ? savedMeds : []);
 
-    const savedWater = parseInt(localStorage.getItem(STORAGE_KEYS.WATER) || "0", 10);
+    const savedWater = parseInt(localStorage.getItem(LOCAL_STORAGE_KEYS.WATER) || "0", 10);
     waterGlassesCount = Math.min(Math.max(0, savedWater), TOTAL_WATER_GOAL);
   } catch (e) {
-    console.error("Erro ao carregar dados:", e);
+    console.error("Erro ao carregar dados locais:", e);
   }
 }
 
-function saveData() {
+/**
+ * Salva dados locais de imediato
+ */
+function saveLocalData() {
   try {
-    localStorage.setItem(STORAGE_KEYS.COMPLETED, JSON.stringify([...completedTaskIds]));
-    localStorage.setItem(STORAGE_KEYS.COMPLETED_MEDS, JSON.stringify([...completedMedIds]));
-    localStorage.setItem(STORAGE_KEYS.WATER, waterGlassesCount.toString());
+    localStorage.setItem(LOCAL_STORAGE_KEYS.COMPLETED, JSON.stringify([...completedTaskIds]));
+    localStorage.setItem(LOCAL_STORAGE_KEYS.COMPLETED_MEDS, JSON.stringify([...completedMedIds]));
+    localStorage.setItem(LOCAL_STORAGE_KEYS.WATER, waterGlassesCount.toString());
   } catch (e) {
-    console.error("Erro ao salvar dados:", e);
+    console.error("Erro ao salvar dados locais:", e);
+  }
+}
+
+/**
+ * Sincroniza com o backend SQLite se o usuário estiver logado
+ */
+async function syncToServer() {
+  saveLocalData();
+  if (!authToken) return;
+
+  try {
+    await fetch("/api/routine/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        date: getTodayDateStr(),
+        completed_tasks: [...completedTaskIds],
+        completed_meds: [...completedMedIds],
+        water_count: waterGlassesCount
+      })
+    });
+  } catch (err) {
+    console.warn("Backend offline ou inacessível, dados mantidos localmente:", err.message);
+  }
+}
+
+/**
+ * Carrega do banco SQL de hoje
+ */
+async function syncFromServer() {
+  if (!authToken) {
+    loadLocalData();
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/routine/day?date=${getTodayDateStr()}`, {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      completedTaskIds = new Set(Array.isArray(data.completed_tasks) ? data.completed_tasks : []);
+      completedMedIds = new Set(Array.isArray(data.completed_meds) ? data.completed_meds : []);
+      waterGlassesCount = Math.min(Math.max(0, Number(data.water_count) || 0), TOTAL_WATER_GOAL);
+      saveLocalData();
+    } else if (res.status === 401) {
+      // Sessão expirou
+      handleLogoutLocal();
+    } else {
+      loadLocalData();
+    }
+  } catch {
+    loadLocalData();
   }
 }
 
@@ -119,7 +189,7 @@ function toggleTask(taskId) {
     }
   }
 
-  saveData();
+  syncToServer();
   renderCurrentView();
   updateProgress();
 }
@@ -134,7 +204,7 @@ function toggleMedication(medId) {
     } else {
       completedMedIds.add(medId);
     }
-    saveData();
+    syncToServer();
     renderCurrentView();
     updateProgress();
   }
@@ -251,24 +321,30 @@ function renderRemediosView() {
   const container = document.getElementById("remedios-list-container");
   if (!container) return;
 
-  container.innerHTML = MEDICAMENTOS_DATA.map(med => {
+  let meds = MEDICAMENTOS_DATA;
+  if (hideCompleted) meds = meds.filter(m => !completedMedIds.has(m.id));
+
+  if (meds.length === 0) {
+    container.innerHTML = '<div class="empty-state">Todos os medicamentos já foram tomados!</div>';
+    return;
+  }
+
+  container.innerHTML = meds.map(med => {
     const isDone = completedMedIds.has(med.id);
     const pillsHtml = med.medicamentos.map(pill => `<span class="remedio-pill-tag">${pill}</span>`).join("");
 
     return `
-      <div class="remedio-item-card ${isDone ? 'is-done' : ''}" id="med-card-${med.id}">
-        <div class="remedio-info">
-          <div class="remedio-momento-headline">
-            <h3 class="remedio-momento-title">${med.momento.toUpperCase()}</h3>
+      <article class="remedio-item-card ${isDone ? 'is-done' : ''}" id="med-card-${med.id}">
+        <button class="custom-check-btn" data-med-id="${med.id}" aria-label="Marcar remédio como tomado">✓</button>
+        <div class="card-content">
+          <div class="card-top-row">
+            <span class="remedio-momento-title">${med.momento}</span>
             <span class="remedio-periodo-tag">${med.periodo}</span>
           </div>
           <div class="remedio-pills-wrap">${pillsHtml}</div>
           <p class="remedio-desc">${med.instrucao}</p>
         </div>
-        <button class="remedio-status-pill ${isDone ? 'done' : 'pending'}" data-med-id="${med.id}">
-          ${isDone ? '✓ Tomado' : 'Marcar como Tomado'}
-        </button>
-      </div>
+      </article>
     `;
   }).join("");
 }
@@ -309,6 +385,203 @@ function updateCurrentTaskBanner() {
   }
 }
 
+// ================= AUTENTICAÇÃO E HISTÓRICO SQL =================
+
+function updateUserUI() {
+  const container = document.getElementById("user-profile-bar");
+  if (!container) return;
+
+  if (currentUser) {
+    container.innerHTML = `
+      <div class="user-badge" title="Conectado como ${currentUser}">
+        <span class="user-email-text">${currentUser}</span>
+      </div>
+      <button id="btn-open-history" class="btn-history" title="Ver registros anteriores no banco SQL">Histórico</button>
+      <button id="btn-logout" class="btn-logout" title="Sair da conta">Sair</button>
+    `;
+    document.getElementById("btn-logout")?.addEventListener("click", handleLogout);
+    document.getElementById("btn-open-history")?.addEventListener("click", openHistoryModal);
+  } else {
+    container.innerHTML = `
+      <button id="btn-open-auth" class="btn-auth">Entrar / Criar Conta</button>
+    `;
+    document.getElementById("btn-open-auth")?.addEventListener("click", () => openAuthModal("login"));
+  }
+}
+
+function openAuthModal(mode = "login") {
+  authMode = mode;
+  const modal = document.getElementById("auth-modal");
+  const tabLogin = document.getElementById("tab-login-btn");
+  const tabRegister = document.getElementById("tab-register-btn");
+  const submitBtn = document.getElementById("submit-auth-btn");
+  const errorMsg = document.getElementById("auth-error-msg");
+  const form = document.getElementById("auth-form");
+
+  if (!modal) return;
+  form?.reset();
+  if (errorMsg) {
+    errorMsg.textContent = "";
+    errorMsg.classList.add("hidden");
+  }
+
+  if (mode === "login") {
+    tabLogin?.classList.add("active");
+    tabRegister?.classList.remove("active");
+    if (submitBtn) submitBtn.textContent = "Entrar";
+  } else {
+    tabRegister?.classList.add("active");
+    tabLogin?.classList.remove("active");
+    if (submitBtn) submitBtn.textContent = "Criar Conta";
+  }
+
+  modal.classList.remove("hidden");
+  document.getElementById("auth-email")?.focus();
+}
+
+function closeAuthModal() {
+  document.getElementById("auth-modal")?.classList.add("hidden");
+}
+
+async function openHistoryModal() {
+  const modal = document.getElementById("history-modal");
+  const container = document.getElementById("history-list-container");
+  if (!modal || !container) return;
+
+  modal.classList.remove("hidden");
+  container.innerHTML = '<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Consultando banco de dados SQL...</div>';
+
+  if (!authToken) {
+    container.innerHTML = '<div class="empty-state">Faça login para visualizar o histórico de registros.</div>';
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/routine/history", {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    const data = await res.json();
+    const history = data.history || [];
+
+    if (history.length === 0) {
+      container.innerHTML = '<div class="empty-state">Nenhum registro anterior encontrado no banco de dados.</div>';
+      return;
+    }
+
+    container.innerHTML = history.map(item => {
+      const [y, m, d] = item.date.split("-");
+      const dateFormatted = `${d}/${m}/${y}`;
+      return `
+        <div class="history-item-row">
+          <div class="history-date-box">
+            <span class="history-date-title">${dateFormatted}</span>
+            <span class="history-updated-time">Atualizado: ${item.updatedAt}</span>
+          </div>
+          <div class="history-metrics">
+            <span class="history-chip">${item.tasksCount} de 33 tarefas</span>
+            <span class="history-chip chip-med">${item.medsCount} remédios</span>
+            <span class="history-chip chip-water">${item.waterCount} copos</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state">Erro ao conectar com o banco SQL: ${err.message}</div>`;
+  }
+}
+
+function closeHistoryModal() {
+  document.getElementById("history-modal")?.classList.add("hidden");
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById("auth-email")?.value.trim() || "";
+  const password = document.getElementById("auth-password")?.value || "";
+  const errorMsg = document.getElementById("auth-error-msg");
+  const submitBtn = document.getElementById("submit-auth-btn");
+
+  if (errorMsg) {
+    errorMsg.textContent = "";
+    errorMsg.classList.add("hidden");
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Conectando ao SQL...";
+  }
+
+  const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Falha na requisição.");
+    }
+
+    authToken = data.token;
+    currentUser = data.user.email;
+    localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, authToken);
+    localStorage.setItem(LOCAL_STORAGE_KEYS.USER, currentUser);
+
+    closeAuthModal();
+    updateUserUI();
+
+    // Se tiver dados em andamento, salva no banco; senão puxa do banco
+    if (completedTaskIds.size > 0 || waterGlassesCount > 0) {
+      await syncToServer();
+    } else {
+      await syncFromServer();
+    }
+
+    renderWater();
+    renderCurrentView();
+    updateProgress();
+  } catch (err) {
+    if (errorMsg) {
+      errorMsg.textContent = err.message;
+      errorMsg.classList.remove("hidden");
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = authMode === "login" ? "Entrar" : "Criar Conta";
+    }
+  }
+}
+
+async function handleLogout() {
+  if (authToken) {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${authToken}` }
+      });
+    } catch {
+      // ignora erro de rede no logout
+    }
+  }
+  handleLogoutLocal();
+}
+
+function handleLogoutLocal() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.TOKEN);
+  localStorage.removeItem(LOCAL_STORAGE_KEYS.USER);
+  updateUserUI();
+  loadLocalData();
+  renderWater();
+  renderCurrentView();
+  updateProgress();
+}
+
 function setupEvents() {
   const tabButtons = document.querySelectorAll(".tab-item");
   tabButtons.forEach(btn => {
@@ -328,7 +601,7 @@ function setupEvents() {
   document.getElementById("btn-quick-water")?.addEventListener("click", () => {
     if (waterGlassesCount < TOTAL_WATER_GOAL) {
       waterGlassesCount++;
-      saveData();
+      syncToServer();
       renderWater();
     }
   });
@@ -338,7 +611,7 @@ function setupEvents() {
     if (!btn) return;
     const slot = parseInt(btn.dataset.slot, 10);
     waterGlassesCount = slot === waterGlassesCount ? slot - 1 : slot;
-    saveData();
+    syncToServer();
     renderWater();
   });
 
@@ -357,28 +630,45 @@ function setupEvents() {
     if (btn) toggleMedication(btn.dataset.medId);
   });
 
-  const modal = document.getElementById("reset-modal");
+  // Modal de Reset
+  const resetModal = document.getElementById("reset-modal");
   document.getElementById("btn-reset-day")?.addEventListener("click", () => {
-    modal?.classList.remove("hidden");
+    resetModal?.classList.remove("hidden");
   });
   document.getElementById("cancel-reset-btn")?.addEventListener("click", () => {
-    modal?.classList.add("hidden");
+    resetModal?.classList.add("hidden");
   });
   document.getElementById("confirm-reset-btn")?.addEventListener("click", () => {
     completedTaskIds.clear();
     completedMedIds.clear();
     waterGlassesCount = 0;
-    saveData();
+    syncToServer();
     renderWater();
     renderCurrentView();
     updateProgress();
-    modal?.classList.add("hidden");
+    resetModal?.classList.add("hidden");
   });
+
+  // Modal de Autenticação
+  document.getElementById("tab-login-btn")?.addEventListener("click", () => openAuthModal("login"));
+  document.getElementById("tab-register-btn")?.addEventListener("click", () => openAuthModal("register"));
+  document.getElementById("cancel-auth-btn")?.addEventListener("click", closeAuthModal);
+  document.getElementById("auth-form")?.addEventListener("submit", handleAuthSubmit);
+
+  // Modal de Histórico
+  document.getElementById("close-history-btn")?.addEventListener("click", closeHistoryModal);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  loadData();
+document.addEventListener("DOMContentLoaded", async () => {
   setupEvents();
+  updateUserUI();
+
+  if (authToken) {
+    await syncFromServer();
+  } else {
+    loadLocalData();
+  }
+
   renderWater();
   renderCurrentView();
   updateProgress();
